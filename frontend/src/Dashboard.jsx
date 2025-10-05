@@ -3,6 +3,7 @@ import { useWallet } from './WalletContext';
 import apiService from './services/api';
 import PortfolioAnalytics from './components/PortfolioAnalytics';
 import TransactionTable from './components/TransactionTable';
+import GeminiSummaryCard from './components/GeminiSummaryCard';
 
 const Dashboard = ({ initialTab = 'overview' }) => {
   const { account, balance } = useWallet();
@@ -145,6 +146,8 @@ const Dashboard = ({ initialTab = 'overview' }) => {
         </div>
 
         <PortfolioAnalytics overview={overview} loading={loadingOverview} />
+
+        <GeminiSummaryCard overview={overview} />
       </div>
     );
   };

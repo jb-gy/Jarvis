@@ -1,4 +1,4 @@
-require('./config/loadEnv');
+const env = require('./config/loadEnv');
 const express = require('express');
 const cors = require('cors');
 const { initDatabase } = require('./database');
@@ -7,7 +7,7 @@ const orderRoutes = require('./routes/orders');
 const financeRoutes = require('./routes/finance');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = env.PORT || 3001;
 
 // Middleware
 app.use(cors({

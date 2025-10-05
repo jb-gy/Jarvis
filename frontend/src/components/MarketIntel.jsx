@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import { Line, Scatter } from 'react-chartjs-2';
 import apiService from '../services/api';
+import GeminiMarketSummary from './GeminiMarketSummary';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -525,6 +526,10 @@ const MarketIntel = () => {
               ))}
             </div>
           </section>
+        )}
+
+        {!loading && insights?.data?.length > 0 && (
+          <GeminiMarketSummary insights={insights} />
         )}
 
         {correlationTable && (

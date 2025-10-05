@@ -1,19 +1,19 @@
-require('../config/loadEnv');
+const env = require('../config/loadEnv');
 const https = require('https');
 
-const GEMINI_API_BASE = process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com';
-const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION || 'v1beta';
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest';
+const GEMINI_API_BASE = env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com';
+const GEMINI_API_VERSION = env.GEMINI_API_VERSION || 'v1beta';
+const DEFAULT_MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 const hasNativeFetch = typeof fetch === 'function';
 
 const buildUrl = (model) => {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY is not configured.');
   }
 
   const safeModel = encodeURIComponent(model || DEFAULT_MODEL);
-  return `${GEMINI_API_BASE.replace(/\/$/, '')}/${GEMINI_API_VERSION}/models/${safeModel}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  return `${GEMINI_API_BASE.replace(/\/$/, '')}/${GEMINI_API_VERSION}/models/${safeModel}:generateContent?key=${env.GEMINI_API_KEY}`;
 };
 
 const buildPayload = ({ contents, systemInstruction, generationConfig, safetySettings }) => {

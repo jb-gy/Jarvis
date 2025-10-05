@@ -1,5 +1,4 @@
-require('dotenv').config();
-require('../config/loadEnv');
+const env = require('../config/loadEnv');
 const { DEFAULT_MODEL, generateContent } = require('./geminiClient');
 
 const DEFAULT_PORTFOLIO = {
@@ -176,19 +175,20 @@ const formatFallbackMessage = () =>
 
 
 const GEMINI_GENERATION_CONFIG = {
-  temperature: Number(process.env.GEMINI_TEMPERATURE ?? 0.25),
-  maxOutputTokens: Number(process.env.GEMINI_MAX_OUTPUT_TOKENS ?? 768),
-  topP: Number(process.env.GEMINI_TOP_P ?? 0.9)
+  temperature: Number(env.GEMINI_TEMPERATURE ?? 0.25),
+  maxOutputTokens: Number(env.GEMINI_MAX_OUTPUT_TOKENS ?? 768),
+  topP: Number(env.GEMINI_TOP_P ?? 0.9)
 };
 
-const GEMINI_SAFETY_SETTINGS = [
+const VALID_SAFETY_CATEGORIES = new Set([
   'HARM_CATEGORY_DANGEROUS_CONTENT',
   'HARM_CATEGORY_HARASSMENT',
-  'HARM_CATEGORY_HATE_SPEECH',
-  'HARM_CATEGORY_SEXUAL_CONTENT'
-].map((category) => ({
+  'HARM_CATEGORY_HATE_SPEECH'
+]);
+
+const GEMINI_SAFETY_SETTINGS = Array.from(VALID_SAFETY_CATEGORIES).map((category) => ({
   category,
-  threshold: process.env.GEMINI_SAFETY_THRESHOLD || 'BLOCK_MEDIUM_AND_ABOVE'
+  threshold: env.GEMINI_SAFETY_THRESHOLD || 'BLOCK_MEDIUM_AND_ABOVE'
 }));
 
 const DEFAULT_PREFILL_PROMPT = 'Introduce yourself as Jarvis, the user\'s crypto banking copilot. Give a two-sentence summary of the wallet posture and how you can help.';
@@ -205,20 +205,33 @@ const extractCandidateText = (candidate) => {
     .trim();
 };
 
-const buildSystemInstruction = (overview, walletAddress) => ({
-  role: 'system',
-  parts: [
+const buildSystemInstruction = (overview, walletAddress, extraContext = []) => {
+  const parts = [
     {
       text: `You are Jarvis, an expert digital private banker supporting wallet ${walletAddress}. Keep answers precise, reference numbers sparingly, and surface concrete actions.`
     },
     {
-      text: `Portfolio snapshot (JSON): ${JSON.stringify(overview)}`
-    },
-    {
       text: 'Always close with a short call-to-action when recommending moves.'
     }
-  ]
-});
+  ];
+
+  if (overview) {
+    parts.splice(1, 0, {
+      text: `Portfolio snapshot (JSON): ${JSON.stringify(overview)}`
+    });
+  }
+
+  extraContext
+    .filter((entry) => typeof entry === 'string' && entry.trim())
+    .forEach((entry) => {
+      parts.push({ text: entry });
+    });
+
+  return {
+    role: 'system',
+    parts
+  };
+};
 
 const mapHistoryToGemini = (history = []) =>
   history
@@ -277,16 +290,16 @@ const buildFailureNote = (error) => {
     return 'Unable to reach Gemini. Check your internet connection or proxy settings.';
   }
   if (detail) {
-    return `Gemini error: ${detail}. Fallback strategies are active while we recover.`;
+    return `Gemini error. Fallback strategies are active while we recover.`;
   }
 
   return 'Gemini is unavailable right now. Fallback strategies are active while we recover.';
 };
 
-const chatWithAssistant = async ({ walletAddress, question, prompt, history = [], overview, prefill = false }) => {
+const chatWithAssistant = async ({ walletAddress, question, prompt, history = [], overview, prefill = false, contextBlocks = [] }) => {
   const portfolio = overview || (await getOverview(walletAddress));
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!env.GEMINI_API_KEY) {
     return prefill
       ? {
           source: 'fallback',
@@ -327,7 +340,7 @@ const chatWithAssistant = async ({ walletAddress, question, prompt, history = []
   try {
     const data = await generateContent({
       contents,
-      systemInstruction: buildSystemInstruction(portfolio, walletAddress),
+      systemInstruction: buildSystemInstruction(portfolio, walletAddress, contextBlocks),
       generationConfig: GEMINI_GENERATION_CONFIG,
       safetySettings: GEMINI_SAFETY_SETTINGS
     });

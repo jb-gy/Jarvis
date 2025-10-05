@@ -44,7 +44,15 @@ router.get('/transactions/:walletAddress', async (req, res) => {
 // AI-powered investment suggestions via Gemini
 router.post('/ai-suggestions', async (req, res) => {
   try {
-    const { walletAddress, prompt, question, history = [], prefill = false } = req.body || {};
+    const {
+      walletAddress,
+      prompt,
+      question,
+      history = [],
+      prefill = false,
+      overview,
+      context
+    } = req.body || {};
 
     if (!walletAddress) {
       return res.status(400).json({
@@ -53,12 +61,20 @@ router.post('/ai-suggestions', async (req, res) => {
       });
     }
 
+    const contextBlocks = Array.isArray(context)
+      ? context.filter((entry) => typeof entry === 'string' && entry.trim())
+      : typeof context === 'string' && context.trim()
+        ? [context.trim()]
+        : [];
+
     const payload = await financeService.chatWithAssistant({
       walletAddress,
       prompt,
       question,
       history,
-      prefill: Boolean(prefill)
+      prefill: Boolean(prefill),
+      overview,
+      contextBlocks
     });
 
     res.json({
