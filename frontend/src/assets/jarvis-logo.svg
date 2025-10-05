@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="jarvisGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="56" fill="#0f172a" stroke="url(#jarvisGradient)" stroke-width="8" />
+  <path d="M60 28c14 0 26 12 26 26s-12 26-26 26S34 68 34 54" fill="none" stroke="url(#jarvisGradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="60" cy="92" r="6" fill="#22d3ee" />
+</svg>
