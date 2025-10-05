@@ -1,3 +1,7 @@
+require('dotenv').config();
+require('../config/loadEnv');
+const { DEFAULT_MODEL, generateContent } = require('./geminiClient');
+
 const DEFAULT_PORTFOLIO = {
   overview: {
     ownerName: 'Alex Rivers',
@@ -170,82 +174,216 @@ const formatFallbackMessage = () =>
     return `${index + 1}. ${idea.title}\n${idea.thesis}\nAllocation: ${idea.allocationSuggestion}\nRisk: ${idea.riskLevel}${steps}`;
   }).join('\n\n');
 
+
+const GEMINI_GENERATION_CONFIG = {
+  temperature: Number(process.env.GEMINI_TEMPERATURE ?? 0.25),
+  maxOutputTokens: Number(process.env.GEMINI_MAX_OUTPUT_TOKENS ?? 768),
+  topP: Number(process.env.GEMINI_TOP_P ?? 0.9)
+};
+
+const GEMINI_SAFETY_SETTINGS = [
+  'HARM_CATEGORY_DANGEROUS_CONTENT',
+  'HARM_CATEGORY_HARASSMENT',
+  'HARM_CATEGORY_HATE_SPEECH',
+  'HARM_CATEGORY_SEXUAL_CONTENT'
+].map((category) => ({
+  category,
+  threshold: process.env.GEMINI_SAFETY_THRESHOLD || 'BLOCK_MEDIUM_AND_ABOVE'
+}));
+
+const DEFAULT_PREFILL_PROMPT = 'Introduce yourself as Jarvis, the user\'s crypto banking copilot. Give a two-sentence summary of the wallet posture and how you can help.';
+
+const extractCandidateText = (candidate) => {
+  if (!candidate?.content?.parts?.length) {
+    return '';
+  }
+
+  return candidate.content.parts
+    .map((part) => (typeof part.text === 'string' ? part.text : ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+};
+
+const buildSystemInstruction = (overview, walletAddress) => ({
+  role: 'system',
+  parts: [
+    {
+      text: `You are Jarvis, an expert digital private banker supporting wallet ${walletAddress}. Keep answers precise, reference numbers sparingly, and surface concrete actions.`
+    },
+    {
+      text: `Portfolio snapshot (JSON): ${JSON.stringify(overview)}`
+    },
+    {
+      text: 'Always close with a short call-to-action when recommending moves.'
+    }
+  ]
+});
+
 const mapHistoryToGemini = (history = []) =>
-  history.slice(-10).map((message) => ({
-    role: message.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: message.content }]
-  }));
+  history
+    .filter((message) => ['assistant', 'user'].includes(message.role) && message.content)
+    .slice(-12)
+    .map((message) => ({
+      role: message.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: message.content }]
+    }));
 
-const buildSystemPrompt = (overview) => `You are Jarvis, an expert crypto banking copilot. Keep answers concise, pragmatic, and tailored to the user's portfolio.
+const buildPrefillFallback = (overview) => {
+  const { balances, growth } = overview;
+  const totalUsd = balances?.totalUsd ?? balances?.crypto?.usdValue + balances?.stablecoinsUsd;
 
-Portfolio snapshot (JSON): ${JSON.stringify(overview)}
+  return [
+    "Gemini Analyst is running in offline mode, so here is a quick snapshot based on cached telemetry:",
+    `• Total assets stand at ~$${Number(totalUsd || 0).toLocaleString()} with ${balances?.crypto?.amount?.toFixed?.(2) ?? '—'} ${
+      balances?.crypto?.symbol || 'ETH'
+    } on book.`,
+    `• Last recorded delta since your previous buy was ${growth?.percentChange ?? 0}% (${growth?.deltaUsd ? `$${growth.deltaUsd.toLocaleString()}` : 'N/A'}).`,
+    'Ask any question and the copilot will respond with playbooks even without live Gemini access.'
+  ].join('\n');
+};
 
-Return plain text with actionable insight.`;
+const formatFallbackResponse = (overview) => ({
+  source: 'fallback',
+  message: formatFallbackMessage(),
+  note: 'Gemini is currently unavailable. Showing curated fallback ideas instead.',
+  meta: {
+    model: null,
+    usage: null,
+    latencyMs: null,
+    safetyRatings: []
+  },
+  context: {
+    overview
+  }
+});
 
-const chatWithAssistant = async ({ walletAddress, question, history = [], overview }) => {
+const buildFailureNote = (error) => {
+  if (!error) {
+    return 'Gemini service is unreachable. Using offline playbooks for now.';
+  }
+
+  const status = error.status || error?.response?.status;
+  if (status === 401 || status === 403) {
+    return 'Gemini rejected the request. Verify your API key, project access, and billing status.';
+  }
+
+  if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+    return 'Unable to reach Gemini. Check your network connectivity and firewall settings.';
+  }
+
+  const detail = error?.response?.error?.message || error?.message;
+  if (detail && detail.toLowerCase() === 'fetch failed') {
+    return 'Unable to reach Gemini. Check your internet connection or proxy settings.';
+  }
+  if (detail) {
+    return `Gemini error: ${detail}. Fallback strategies are active while we recover.`;
+  }
+
+  return 'Gemini is unavailable right now. Fallback strategies are active while we recover.';
+};
+
+const chatWithAssistant = async ({ walletAddress, question, prompt, history = [], overview, prefill = false }) => {
   const portfolio = overview || (await getOverview(walletAddress));
 
   if (!process.env.GEMINI_API_KEY) {
+    return prefill
+      ? {
+          source: 'fallback',
+          message: buildPrefillFallback(portfolio),
+          note: 'Set GEMINI_API_KEY to enable live Gemini insights.',
+          meta: {
+            model: null,
+            usage: null,
+            latencyMs: null,
+            safetyRatings: []
+          },
+          context: {
+            overview: portfolio
+          }
+        }
+      : formatFallbackResponse(portfolio);
+  }
+
+  const userPrompt = (prompt ?? question ?? (prefill ? DEFAULT_PREFILL_PROMPT : '')).trim();
+
+  if (!userPrompt) {
     return {
-      source: 'fallback',
-      message: formatFallbackMessage(),
-      note: 'Set GEMINI_API_KEY to enable live Gemini insights.'
+      source: 'noop',
+      message: '',
+      meta: {
+        model: DEFAULT_MODEL,
+        usage: null,
+        latencyMs: 0,
+        safetyRatings: []
+      }
     };
   }
 
-  const contents = [
-    { role: 'user', parts: [{ text: buildSystemPrompt(portfolio) }] },
-    ...mapHistoryToGemini(history)
-  ];
+  const contents = [...mapHistoryToGemini(history), { role: 'user', parts: [{ text: userPrompt }] }];
 
-  if (question && question.trim()) {
-    contents.push({ role: 'user', parts: [{ text: question.trim() }] });
-  }
-
-  const fetchFromRuntime = (...args) => {
-    if (typeof fetch !== 'function') {
-      throw new Error('Fetch API is not available in this runtime.');
-    }
-    return fetch(...args);
-  };
+  const startedAt = Date.now();
 
   try {
-    const response = await fetchFromRuntime(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          generationConfig: {
-            temperature: 0.35,
-            maxOutputTokens: 512
-          }
-        })
-      }
-    );
+    const data = await generateContent({
+      contents,
+      systemInstruction: buildSystemInstruction(portfolio, walletAddress),
+      generationConfig: GEMINI_GENERATION_CONFIG,
+      safetySettings: GEMINI_SAFETY_SETTINGS
+    });
 
-    const data = await response.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.map((part) => part.text).join('\n').trim();
+    const latencyMs = Date.now() - startedAt;
+    const candidate = data?.candidates?.[0];
+    const rawText = extractCandidateText(candidate);
 
     if (!rawText) {
       return {
         source: 'fallback',
         message: formatFallbackMessage(),
-        note: 'Gemini returned an empty response. Showing fallback ideas.'
+        note: buildFailureNote({ message: 'Gemini returned an empty response.' }),
+        meta: {
+          model: data?.model || DEFAULT_MODEL,
+          usage: data?.usageMetadata || null,
+          latencyMs,
+          safetyRatings: candidate?.safetyRatings || []
+        },
+        context: {
+          overview: portfolio
+        }
       };
     }
 
+    const blocked = candidate?.finishReason === 'SAFETY' || candidate?.safetyRatings?.some((rating) => rating.blocked);
+
     return {
       source: 'gemini',
-      message: rawText
+      message: rawText,
+      note: blocked ? 'Response may be truncated due to Gemini safety filters.' : null,
+      meta: {
+        model: data?.model || DEFAULT_MODEL,
+        usage: data?.usageMetadata || null,
+        latencyMs,
+        safetyRatings: candidate?.safetyRatings || []
+      },
+      context: {
+        overview: portfolio
+      }
     };
   } catch (error) {
-    console.error('Gemini request failed:', error);
+    console.error('Gemini request failed:', error?.response || error);
     return {
       source: 'fallback',
       message: formatFallbackMessage(),
-      note: 'Gemini request failed. Showing fallback ideas.'
+      note: buildFailureNote(error),
+      meta: {
+        model: DEFAULT_MODEL,
+        usage: null,
+        latencyMs: null,
+        safetyRatings: []
+      },
+      context: {
+        overview: portfolio
+      }
     };
   }
 };

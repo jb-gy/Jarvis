@@ -1,4 +1,7 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+const apiBaseFromEnv = typeof import.meta !== 'undefined' ? import.meta.env.VITE_API_BASE_URL : undefined;
+const API_BASE_URL = (apiBaseFromEnv && apiBaseFromEnv.trim())
+  ? apiBaseFromEnv.trim().replace(/\/$/, '')
+  : 'http://localhost:3001/api';
 
 class ApiService {
   // Check if user exists by wallet address
@@ -229,7 +232,7 @@ class ApiService {
     }
   }
 
-  async getInvestmentIdeas(payload) {
+  async sendAnalystMessage(payload) {
     try {
       const response = await fetch(`${API_BASE_URL}/finance/ai-suggestions`, {
         method: 'POST',
@@ -242,12 +245,35 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch AI insights');
+        throw new Error(data.message || 'Failed to fetch Gemini Analyst response');
       }
 
       return data;
     } catch (error) {
-      console.error('Error getting AI insights:', error);
+      console.error('Error contacting Gemini Analyst:', error);
+      throw error;
+    }
+  }
+
+  async getStockMetrics(payload) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/finance/stocks/metrics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to analyse tickers');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error getting stock metrics:', error);
       throw error;
     }
   }

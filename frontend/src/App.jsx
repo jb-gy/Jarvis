@@ -1,7 +1,6 @@
 import { useWallet } from './WalletContext';
 import Layout from './components/Layout';
 import Onboarding from './components/Onboarding';
-import jarvisLogo from './assets/jarvis-logo.svg';
 import './App.css';
 
 const App = () => {
@@ -44,7 +43,12 @@ const App = () => {
       <header className="border-b border-slate-900/80 bg-slate-950/70 backdrop-blur">
         <div className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <img src={jarvisLogo} alt="Jarvis" className="h-10 w-10" />
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-500/40 bg-indigo-500/15 text-indigo-200 font-semibold"
+              aria-hidden="true"
+            >
+              AI
+            </div>
             <div>
               <p className="text-lg font-semibold tracking-wide">Jarvis</p>
               <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Personal crypto banking</p>
@@ -69,7 +73,12 @@ const App = () => {
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top,_#4c1d95,_transparent),_radial-gradient(circle_at_bottom,_#0ea5e9,_transparent)]" />
           <div className="max-w-6xl mx-auto px-6 py-24 relative z-10 grid gap-16 lg:grid-cols-2 lg:items-center">
             <div className="space-y-6">
-              <img src={jarvisLogo} alt="Jarvis" className="h-12 w-12" />
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-3xl border border-indigo-500/40 bg-indigo-500/15 text-indigo-200 font-semibold"
+                aria-hidden="true"
+              >
+                AI
+              </div>
               <span className="inline-flex px-3 py-1 rounded-full bg-white/10 text-xs uppercase tracking-wide text-white/80">Multi-chain ready</span>
               <h1 className="mt-6 text-4xl md:text-5xl font-bold leading-tight">
                 Your wallet. Your balance sheet. <span className="text-indigo-200">All in one command center.</span>

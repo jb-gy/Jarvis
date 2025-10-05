@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import apiService from '../services/api';
-import jarvisLogo from '../assets/jarvis-logo.svg';
 
 const Onboarding = ({ walletAddress, onComplete }) => {
   const [name, setName] = useState('');
@@ -50,7 +49,12 @@ const Onboarding = ({ walletAddress, onComplete }) => {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center space-y-3">
           <div className="flex justify-center">
-            <img src={jarvisLogo} alt="Jarvis" className="h-12 w-12" />
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-3xl border border-indigo-500/40 bg-indigo-500/15 text-indigo-200 font-semibold"
+              aria-hidden="true"
+            >
+              AI
+            </div>
           </div>
           <h2 className="text-3xl font-semibold text-slate-100">Let’s set up your Jarvis profile</h2>
           <p className="text-sm text-slate-400">

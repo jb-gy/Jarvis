@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import Dashboard from '../Dashboard';
 import { useWallet } from '../WalletContext';
 import GeminiAnalystPanel from './AIAssistantPanel';
-import jarvisLogo from '../assets/jarvis-logo.svg';
+import MarketIntel from './MarketIntel';
 import geminiLogo from '../assets/gemini-logo.svg';
 
 const Layout = () => {
@@ -17,6 +17,7 @@ const Layout = () => {
       { id: 'fingerprint', label: 'Wallet Fingerprint' },
       { id: 'portfolio', label: 'Portfolio Split' },
       { id: 'funds', label: 'Funds' },
+      { id: 'market', label: 'Market Intel' },
       { id: 'assistant', label: 'Gemini Analyst', icon: geminiLogo },
       { id: 'settings', label: 'Settings' }
     ],
@@ -38,6 +39,10 @@ const Layout = () => {
       );
     }
 
+    if (activePage === 'market') {
+      return <MarketIntel />;
+    }
+
     if (activePage === 'settings') {
       return (
         <div className="px-[5vw] py-10 text-left text-slate-400 bg-slate-950 min-h-full">
@@ -56,9 +61,14 @@ const Layout = () => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <img src={jarvisLogo} alt="Jarvis" className="h-10 w-10" />
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-500/40 bg-indigo-500/15 text-indigo-200 font-semibold"
+                  aria-hidden="true"
+                >
+                  AI
+                </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.35em] text-indigo-200">Jarvis cockpit</p>
+                  <p className="text-xs uppercase tracking-[0.35em] text-indigo-200">Jarvis</p>
                   <p className="text-sm text-slate-400">Personal crypto banking</p>
                 </div>
               </div>
@@ -69,6 +79,7 @@ const Layout = () => {
                 {activePage === 'fingerprint' && 'Wallet fingerprint'}
                 {activePage === 'portfolio' && 'Portfolio split'}
                 {activePage === 'funds' && 'Funds'}
+                {activePage === 'market' && 'Market intelligence'}
                 {activePage === 'assistant' && 'Gemini Analyst'}
                 {activePage === 'settings' && 'Settings'}
               </h2>
@@ -79,6 +90,7 @@ const Layout = () => {
                 {activePage === 'fingerprint' && 'Key wallet telemetry at a glance.'}
                 {activePage === 'portfolio' && 'See how capital is allocated across strategies.'}
                 {activePage === 'funds' && 'Spin up thematic funds and monitor their objectives.'}
+                {activePage === 'market' && 'Pull Yahoo Finance stats, compare volatility, and spot co-movements live.'}
                 {activePage === 'assistant' && 'Chat with Gemini for allocations, hedges, or market reads tailored to you.'}
                 {activePage === 'settings' && 'Coming soon: custom alerts, risk budgets, and preferences.'}
               </p>
