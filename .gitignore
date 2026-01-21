@@ -10,3 +10,4 @@ commit.sh
 /node_modules
 /ignition
 *.config.js
+/assets
