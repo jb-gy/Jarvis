@@ -1,8 +1,12 @@
 # Environment variables
-.env
+*.env
 .env.*
-backend/.env
-backend/.env.*
-frontend/.env
-frontend/.env.*
 .DS_Store
+package.json
+package-lock.json
+commit.sh
+/test
+/Stock-Analysis-Engine
+/node_modules
+/ignition
+*.config.js
